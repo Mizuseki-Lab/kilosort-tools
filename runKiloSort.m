@@ -4,9 +4,9 @@ function runKiloSort(basepath,chanMap,varargin)
 % varargin : pair of option names and values such as
 %   NchanTOT : total number of channels
 %   Nchan : number of active channels
+%
 
 % check for overwriting
-
 if exist(fullfile(basepath,'rez.mat'),'file')
     str = input('Kilosort result (rez.mat) already exists! Overwrite? (y/n)','s');
     if strcmp(str,'n') || strcmp(str,'n')
@@ -14,7 +14,6 @@ if exist(fullfile(basepath,'rez.mat'),'file')
         return;
     end
 end
-
 if mod(length(varargin),2)~=0
     error('Options should be pairs of name and value'); 
 end
@@ -50,7 +49,8 @@ function ops = config(basepath,chanMap,varargin)
 
 % define the channel map as a filename (string) or simply an array
 ops.chanMap             = chanMap; % make this file using createChannelMapFile.m
-ops.criterionNoiseChannels = 0.01; % fraction of "noise" templates allowed to span all channel groups (see createChannelMapFile for more info).
+% ops.criterionNoiseChannels = 0.01; % fraction of "noise" templates allowed to span all channel groups (see createChannelMapFile for more info).
+ops.criterionNoiseChannels = 0.1;
 % ops.chanMap = 1:ops.Nchan; % treated as linear probe if a chanMap file
 
 ops.GPU                 = 1; % whether to run this code on an Nvidia GPU (much faster, mexGPUall first)
@@ -101,7 +101,7 @@ ops.NT                  = 32*1024+ ops.ntbuff; % this is the batch size (try dec
 % the following options can improve/deteriorate results.
 % when multiple values are provided for an option, the first two are beginning and ending anneal values,
 % the third is the value used in the final pass.
-ops.Th               = [6 12 12];    % threshold for detecting spikes on template-filtered data ([6 12 12])
+ops.Th               = [3 9 9];    % threshold for detecting spikes on template-filtered data ([6 12 12])
 ops.lam              = [10 30 30];    % large means amplitudes are forced around the mean ([10 30 30])
 ops.nannealpasses    = 4;            % should be less than nfullpasses (4)
 ops.momentum         = 1./[20 400];  % start with high momentum and anneal (1./[20 1000])
@@ -127,6 +127,11 @@ ops.fracse  = 0.1; % binning step along discriminant axis for posthoc merges (in
 ops.epu     = Inf;
 
 ops.ForceMaxRAMforDat   = 120e9; % maximum RAM the algorithm will try to use; on Windows it will autodetect.
+if isfield(ops,'fs')
+    ops.nt0=ceil((ops.fs*2e-3)/2)*2+1; % 2 ms
+else
+    ops.nt0=61;
+end
 
 for n=1:length(varargin)/2
     if ~isfield(ops,varargin{2*n-1})
