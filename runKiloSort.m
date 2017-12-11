@@ -1,7 +1,11 @@
 function runKiloSort(basepath,chanMap,varargin)
+% run kilosort with given parameters. default values are used for omitted ones.
+%
+% runKiloSort(basepath,chanMap,[options])   
+%
 % basepath : directory containing dat file
 % chanMap : path of channel map file
-% varargin : pair of option names and values such as
+% options : pairs of option names and values such as
 %   NchanTOT : total number of channels
 %   Nchan : number of active channels
 %
@@ -46,6 +50,7 @@ rezToPhy(rez, ops.root);
 delete(ops.fproc);
 
 function ops = config(basepath,chanMap,varargin)
+%set default values
 
 % define the channel map as a filename (string) or simply an array
 ops.chanMap             = chanMap; % make this file using createChannelMapFile.m
@@ -127,12 +132,16 @@ ops.fracse  = 0.1; % binning step along discriminant axis for posthoc merges (in
 ops.epu     = Inf;
 
 ops.ForceMaxRAMforDat   = 120e9; % maximum RAM the algorithm will try to use; on Windows it will autodetect.
-if isfield(ops,'fs')
+
+if isfield(cMap,'fs')
+    ops.nt0=ceil((cMap.fs*2e-3)/2)*2+1; % 2 ms
+elseif isfield(ops,'fs')
     ops.nt0=ceil((ops.fs*2e-3)/2)*2+1; % 2 ms
 else
     ops.nt0=61;
 end
 
+%set specified parameters
 for n=1:length(varargin)/2
     if ~isfield(ops,varargin{2*n-1})
         error(['Invalid option name :' ,varargin{2*n-1}]);

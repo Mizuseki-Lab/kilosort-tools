@@ -1,4 +1,11 @@
 function removeNoiseCluFromRez(path,varargin)
+% remove noise clusters from rez files PERMANENTLY. Use with care!
+%
+% removeNoiseCluFromRez(path,[options])   
+% path : directory containing rez.mat and other kilosort files
+% options : pairs of option names and values
+%   backup : (boolean) back up files before removing
+%   update : (boolean) update npy files as well
 
     if mod(length(varargin),2)~=0
         error('Stopped due to wrong option')
