@@ -142,11 +142,13 @@ else
 end
 
 %set specified parameters
+optionList=fieldnames(ops);
 for n=1:length(varargin)/2
-    if ~isfield(ops,varargin{2*n-1})
+    optionName=optionList(strcmpi(varargin{2*n-1},optionList);
+    if length(optionName)~=1
         error(['Invalid option name :' ,varargin{2*n-1}]);
     else
-        ops.(varargin{2*n-1})=varargin{2*n};
+        ops.(optionName{1})=varargin{2*n};
     end
 end
 
