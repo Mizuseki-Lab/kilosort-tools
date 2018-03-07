@@ -18,14 +18,14 @@ function threshold = autoRecluster(path,varargin)
 %   cutFreq (300) :cut-off frequency of median filter based high-pass filter
 %   nBeforePeak (16) :number of points before spike peak
 %   nAfterPeak (24) :number of points after spike peak
-%   nDeaturePerCh (3) :number of feature per channel
+%   nFeaturePerCh (3) :number of feature per channel
 %   nbaseline (5) :number of baseline timepoints to get threshold. each baseline is 1-min duration.
 %   threshold ([]) :list of thresholds (for each ch) to determine channles with meaningful peaks. when it's not given, decided base on dat.
 %   nSubsetPercluster (3000) :number of spikes to determine on which channel a cluster is
 %   nSpikeToUseRecluster (10000) :number of spikes used for KK (via Subset option)
 %   getThresholdOnly (false) :get threshold only. Do not do reclustering
 %   maxNch (4) :max number of channels used for re-clustering
-%   doparallel (true) :use parfor if possible
+%   doParallel (true) :use parfor if possible
 %
 % Usage
 %   autoRecluster(basepath,'targetcluster',[4 10 15]);
