@@ -41,7 +41,7 @@ end
 
 backupNpy=true;
 updateNpy=true;
-kkpath='D:\data\KiloSort\klustakwik.exe';
+kkpath='/usr/local/bin/klustakwik2';
 targetCluster=[];
 
 nBeforePeak=16;
