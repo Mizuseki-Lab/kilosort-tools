@@ -11,6 +11,10 @@ function removeNoiseCluFromRez(path,varargin)
         error('Stopped due to wrong option')
     end
     
+    %get absolute path
+    [~,pathinfo] = fileattrib(path);
+    path=pathinfo.Name;
+    
     backupNpy=true;
     updateNpy=true;
     for idx=1:length(varargin)/2
