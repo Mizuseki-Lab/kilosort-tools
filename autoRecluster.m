@@ -33,6 +33,11 @@ function threshold = autoRecluster(path,varargin)
 % Hiroyuki Miyawaki at Osaka City Univ, 2017 Oct.
 % modified by Takuma Kitanishi, at Osaka City Univ, 2018 Mar 06
 
+%%
+%get absolute path
+[~,pathinfo] = fileattrib(path);
+path=pathinfo.Name;
+    
 %% inicialize parameters
 
 if mod(length(varargin),2)~=0
@@ -41,7 +46,15 @@ end
 
 backupNpy=true;
 updateNpy=true;
-kkpath='/usr/local/bin/klustakwik2';
+if ispc
+    kkpath='D:\data\KiloSort\klustakwik.exe';
+elseif ismac || isunix
+    kkpath='/usr/local/bin/klustakwik2';
+else 
+    %assume linux...
+    kkpath='/usr/local/bin/klustakwik2';
+end
+
 targetCluster=[];
 
 nBeforePeak=16;
@@ -261,7 +274,7 @@ for cluIdx=1:length(clusterList)
     subIdx(spikeTimes(subIdx)>nSample-nAfterPeak-nFilHalf)=[];
     
     subWave=dat.Data.val(rez.ops.chanMap,double(spikeTimes(subIdx))+[-nFilHalf-nBeforePeak:nFilHalf+nAfterPeak]);
-    subWave=double(reshape(subWave,size(subWave,1),size(subIdx,1),[]));
+    subWave=double(reshape(subWave,size(subWave,1),size(subIdx,2),[]));
     subWave=subWave-medfilt1(subWave,nFilHalf*2+1,[],3);
     subWave(:,:,[1:nFilHalf,end-nFilHalf+1:end])=[];
     meanWave=squeeze(mean(subWave,2));
