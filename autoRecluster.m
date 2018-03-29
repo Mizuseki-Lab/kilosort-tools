@@ -266,6 +266,9 @@ for cluIdx=1:length(clusterList)
     disp([datestr(now) ' start cluster ' num2str(clusterList(cluIdx)) ' (' num2str(targetCluIdx) '/' num2str(length(targetCluster)) ')'])
     idx = find(spikeClusters==clusterList(cluIdx));
     
+    if size(idx,2)>size(idx,1)
+        idx=idx';
+    end
     %read subset to determine which channels to be used
     disp(['    ' datestr(now) ' deciding which chanels to be used '])
     
@@ -274,7 +277,7 @@ for cluIdx=1:length(clusterList)
     subIdx(spikeTimes(subIdx)>nSample-nAfterPeak-nFilHalf)=[];
     
     subWave=dat.Data.val(rez.ops.chanMap,double(spikeTimes(subIdx))+[-nFilHalf-nBeforePeak:nFilHalf+nAfterPeak]);
-    subWave=double(reshape(subWave,size(subWave,1),size(subIdx,2),[]));
+    subWave=double(reshape(subWave,size(subWave,1),size(subIdx,1),[]));
     subWave=subWave-medfilt1(subWave,nFilHalf*2+1,[],3);
     subWave(:,:,[1:nFilHalf,end-nFilHalf+1:end])=[];
     meanWave=squeeze(mean(subWave,2));
