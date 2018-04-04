@@ -181,14 +181,14 @@ else
     disp('Npy files were NOT backed up')
 end
 
-disp([datestr(now) ' Loading rez.mat'])
+disp([datestr(now) ' loading rez.mat'])
 load(fullfile(path,'rez.mat'));
 
 %     disp([datestr(now) 'Loading spike times'])
 %     spk=npy2mat(fullfile(path,'spike_times.npy'));
 %     spk=uint64(rez.st3(:,1));
 
-disp([datestr(now) ' Loading cluster ID'])
+disp([datestr(now) ' loading cluster ID'])
 spikeClusters=npy2mat(fullfile(path,'spike_clusters.npy'));
 
 spikeTimes = uint64(rez.st3(:,1));
@@ -269,8 +269,14 @@ for cluIdx=1:length(clusterList)
     if size(idx,2)>size(idx,1)
         idx=idx';
     end
+    
+    if size(idx,1)<nFeaturePerCh
+        fprintf(['    ' datestr(now) ' skipped since this cluster has only %d spikes, but nFeaturePerCh is %d\n'],size(idx,1),nFeaturePerCh)
+        continue
+    end
+    
     %read subset to determine which channels to be used
-    disp(['    ' datestr(now) ' deciding which chanels to be used '])
+    disp(['    ' datestr(now) ' deciding which channels to be used '])
     
     subIdx=sort(idx(randperm(length(idx),min([length(idx),nSubsetPerCluster]))));
     subIdx(spikeTimes(subIdx)<nBeforePeak+nFilHalf+1)=[];
@@ -302,7 +308,7 @@ for cluIdx=1:length(clusterList)
     fprintf('    %s loading and filtering spikes (%d spikes)\n',datestr(now),nSpk)
     waveform=zeros(nCh,nSpk,nBeforePeak+1+nAfterPeak);
     res=double(spikeTimes(idx));
-    if 0% doParallel
+    if doParallel
         parfor n=1:nSpk
             if res(n)<nBeforePeak+nFilHalf+1
                 temp=dat.Data.val(ch,1:res(n)+nFilHalf+nAfterPeak);
@@ -359,8 +365,8 @@ for cluIdx=1:length(clusterList)
         nSubset=1;
     end
     
-    disp(sprintf(['    ' datestr(now) ' launch klustakwik for cluster %d (%d features x %d spikes, nSubset=%d)'],...
-        clusterList(cluIdx),size(pcaScore,2),size(pcaScore,1),nSubset))
+    fprintf(['    ' datestr(now) ' launch klustakwik for cluster %d (%d features x %d spikes, nSubset=%d)\n'],...
+        clusterList(cluIdx),size(pcaScore,2),size(pcaScore,1),nSubset)
     tic
     eval(['! ' kkpath ' ' tempFileCore ' 1 -MinClusters 2 -MaxClusters 12 -Log 1 -MaxPossibleClusters 50 -Screen 0 -UseDistributional 0  -UseFeatures ' UseFeatures optSubset]);
     t=toc;
@@ -369,7 +375,7 @@ for cluIdx=1:length(clusterList)
     newClu = textscan(fh,'%d');
     fclose(fh);
     
-    disp(sprintf(['    ' datestr(now) ' finish klustakwik (took %f seconds, split into %d clusters)'],t,newClu{1}(1)))
+    fprintf(['    ' datestr(now) ' finish klustakwik (took %f seconds, split into %d clusters)\n'],t,newClu{1}(1))
     
     if newClu{1}(1)==1
         disp(['    ' datestr(now) ' cluster index kept'])
