@@ -216,7 +216,6 @@ stats = struct;
 % fid = fopen(fullfile(basepath,datfile),'r');
 nSampleDat=bytes / (2*NchanTOT);
 dat=memmapfile(fullfile(datfile.folder,datfile.name),'format',{'int16',[NchanTOT,nSampleDat],'raw'});
-datRef=dat.Data;
 
 
 %% determine the largest amp shank by getting sparsely sampled 100 spikes
@@ -250,7 +249,7 @@ for ii = 1:nclu
     %         fseek(fid, 2*NchanTOT*(ssTmp(nspk(jj))-NT1), 'bof');
     %         dat = fread(fid, [NchanTOT NT], '*int16');
     %         dat = single(dat');
-    wavesTmp=permute(single(reshape((datRef.raw(chanmapLinear,(ssTmp(nspk))+(-NT1:NT2))),[],length(nspk),NT)),[3,1,2]);
+    wavesTmp=permute(single(reshape((dat.Data.raw(chanmapLinear,(ssTmp(nspk))+(-NT1:NT2))),[],length(nspk),NT)),[3,1,2]);
     
     if strcmpi(baselineMethod,'interpolate')
         baseline=interp1([-NT1,NT2],...
@@ -331,7 +330,7 @@ for ii=1:n2
             target=1+(jj-1)*1000:min(n,jj*1000);
             % get all spikes in the max amplitude shank
             %                 temp=permute(single(reshape((dat.Data.raw(chrange,(ssTmp(target))+(-NT1:NT2))),[],length(target),NT)),[3,1,2]);
-            temp=permute(single(reshape((datRef.raw(chrange,(ssTmp(target))+(-NT1:NT2))),[],length(target),NT)),[3,1,2]);
+            temp=permute(single(reshape((dat.Data.raw(chrange,(ssTmp(target))+(-NT1:NT2))),[],length(target),NT)),[3,1,2]);
             
             if strcmpi(baselineMethod,'interpolate')
                 baseline=interp1([-NT1,NT2],...
