@@ -209,7 +209,8 @@ NT  = NT1+NT2+1;             % sample number
 t   = (-NT1:NT2)/Fs*1000;    % time vector (ms)
 
 % gather spike waveforms
-disp('Gathering spike waveforms...')
+disp('Gathering spike waveforms')
+disp(['from ' fullfile(datfile.folder,datfile.name)])
 nclu = max(clu);
 stats = struct;
 
@@ -219,7 +220,7 @@ dat=memmapfile(fullfile(datfile.folder,datfile.name),'format',{'int16',[NchanTOT
 
 
 %% determine the largest amp shank by getting sparsely sampled 100 spikes
-fprintf('\n%s Getting shank of cluster ... ', datestr(now));
+fprintf('%s Getting shank of each cluster ... ', datestr(now));
 for ii = 1:nclu
     % spike timing sample of the cluster
     if mod(ii,100)==0
