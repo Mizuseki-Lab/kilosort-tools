@@ -221,11 +221,13 @@ dat=memmapfile(fullfile(datfile.folder,datfile.name),'format',{'int16',[NchanTOT
 
 %% determine the largest amp shank by getting sparsely sampled 100 spikes
 fprintf('%s Getting shank of each cluster ... ', datestr(now));
+prog='';
+fprintf('\n  ')
 for ii = 1:nclu
     % spike timing sample of the cluster
     if mod(ii,100)==0
         prog='';
-        fprintf('\n')
+        fprintf('\n  ')
     end
     if mod(ii,10)==1
         fprintf(repmat('\b', 1, numel(prog)))
