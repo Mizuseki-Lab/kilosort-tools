@@ -134,7 +134,7 @@ if iscell(chanMap)
     chanmapLinear=[chanMap{:}]+1;
 else
     chanmapLinear = chanMap(:)+1;
-    temp={};
+    temp=cell(1,size(chanMap,2));
     if size(chanMap,1)==1
         chanMap=chanMap';
     end
@@ -148,16 +148,16 @@ n2=length(chanMap);
 % load spike sample (ss) and clusters (clu)
 % [ts,clu,cluOri,Fs]=loadSpk(basepath);
 % ss = round(ts*Fs);
-if ~exist(fullfile(basepath,'params.py'),'file');
+if ~exist(fullfile(basepath,'params.py'),'file')
     error('params.py is not in %s', besepath);
 end
-if ~exist(fullfile(basepath,'spike_times.npy'),'file');
+if ~exist(fullfile(basepath,'spike_times.npy'),'file')
     error('spike_times.npy is not in %s', besepath);
 end
-if ~exist(fullfile(basepath,'spike_clusters.npy'),'file');
+if ~exist(fullfile(basepath,'spike_clusters.npy'),'file')
     error('spike_clusters.npy is not in %s', besepath);
 end
-if ~exist(fullfile(basepath,'cluster_groups.csv'),'file');
+if ~exist(fullfile(basepath,'cluster_groups.csv'),'file')
     error('cluster_groups.csv is not in %s', besepath);
 end
 
@@ -448,7 +448,7 @@ for ii=1:n2
 
                 x = stats(targetClu).waveMean;
                 e = stats(targetClu).waveStd;
-                pad = repmat(-1*[1:n1],NT,1);
+                pad = repmat(-1*(1:n1),NT,1);
 
                 x2 = x(:,stats(targetClu).maxCh);
                 e2 = e(:,stats(targetClu).maxCh);
@@ -650,7 +650,7 @@ figure(3); clf
 pairList={'trough2peak','FWHM'
           'rise2trough','FWHM'
           'trough2peak','meanRate'
-          'FWHM','meanRate'}
+          'FWHM','meanRate'};
       
 for n=1:4
     subplot(2,2,n)
@@ -677,7 +677,7 @@ print('-dpng',fullfile(figSaveDir,'spkStats_s2'));
 %     end
 bin={1:max(cellfun(@length,chanMap)),1:length(chanMap)};
 allUnitNmap=hist3([[stats.maxCh];[stats.maxSh]]',bin);
-[goodUnitNmap,bin]=hist3([[stats(strcmpi({stats.group},'good')).maxCh];
+goodUnitNmap=hist3([[stats(strcmpi({stats.group},'good')).maxCh];
                           [stats(strcmpi({stats.group},'good')).maxSh]]',bin);
     
 
@@ -689,7 +689,7 @@ for n=1:2
             utype='';
         case 2
             unitNmap = goodUnitNmap;
-            utype=' good'
+            utype=' good';
     end
     subplot(2,1,n)
     imagesc(unitNmap); colorbar
@@ -702,7 +702,7 @@ end
     print('-depsc','-tiff',fullfile(figSaveDir,'spkStats_s3'));
 
 % save
-params.generatorname=mfilename
+params.generatorname=mfilename;
 params.updated=date;
 
 save(fullfile(matSaveDir,'spkStats.mat'),'stats','t','sessName','chanMap','params')
