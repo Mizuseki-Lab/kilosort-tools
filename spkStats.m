@@ -28,15 +28,17 @@
 %                       50:59
 %                       60:63};
 %
-%  options: pairs of name and value
-%       dat2uV  (5*10^6/400/(2^16/2));      scale functor for conversion from dat to micro volt 
-%       nspkMax (100)   number of spikes to determine on which channel the cluster is
-%       baselineMethod ('mean') mean or interpolate, ; 
-%       excludeNoise (true)     whether exlcude noise from isoDist and Lratio
-%       figSaveDir (basepath)   path to save figures
-%       matSaveDir (basepath)   path to save final output (spkStats.mat)
-%
-%
+%  options: pairs of name and value 
+%       inventory of option names and default values
+%        dat2uV  (5*10^6/400/(2^16/2));      scale functor for conversion from dat to micro volt 
+%        nspkMax (100)   number of spikes to determine on which channel the cluster is
+%        baselineMethod ('mean') mean or interpolate. Determine how to extact baseline from each spike 
+%        excludeNoise (true)     whether exlcude noise from isoDist and Lratio
+%        outputFigure (true)     output summary figure for each unit
+%        outputOnlyGood (true)   save figures only for good units 
+%                                (regardless of setting, calculation will be done for all units) 
+%        figSaveDir (basepath)   path to save figures if output figure will be saved
+%        matSaveDir (basepath)   path to save final output (spkStats.mat)
 %
 % OUTPUT
 %   spkStats.mat
@@ -60,6 +62,9 @@
 %
 % References
 %   Isolation distance: Schmitzer-Torbert et al., Neuroscience, 2005
+%                       Harris et al., Neuron, 2001
+%   L ratio:            Schmitzer-Torbert et al., Neuroscience, 2005
+%                       Schmitzer-Torbert & Redish, J Neurophysiol, 2004
 %   ISI index:          Fee et al, J Neurosci Methods, 1996
 %
 % Takuma Kitanishi, OCU, 2017
@@ -88,6 +93,8 @@ params.excludeNoise=true;
 params.figSaveDir=basepath;
 params.matSaveDir=basepath;
 params.datPath=basepath;
+params.outputFigure=true; 
+params.outputOnlyGood=true; 
 
 paramList=fieldnames(params);
 if mod(length(varargin),2)==1
@@ -104,16 +111,11 @@ for n=1:length(varargin)/2
     params.(paramList{ii})=val;    
 end
 
+for n=1:length(paramList)
+    eval([paramList{n} '=params.' paramList{n} ';'])
+end
 
-dat2uV=params.dat2uV;       % dat to micro volt conversion
-% tmpfile = fullfile(basepath,'spkStatsTmp.mat');
-nspkMax=params.nspkMax; %number of spikes to determine on which channel the cluster is
-baselineMethod=params.baselineMethod;
-excludeNoise=params.excludeNoise;
-figSaveDir=params.figSaveDir;
-matSaveDir=params.matSaveDir;
-
-if ~exist(figSaveDir,'dir')
+if ~exist(figSaveDir,'dir') && outputFigure
     mkdir(figSaveDir)
 end
 
@@ -221,18 +223,19 @@ dat=memmapfile(fullfile(datfile.folder,datfile.name),'format',{'int16',[NchanTOT
 
 %% determine the largest amp shank by getting sparsely sampled 100 spikes
 fprintf('%s Getting shank of each cluster ... ', datestr(now));
-prog='';
 fprintf('\n  ')
+prog=sprintf('%s cluster %d / %d', datestr(now),1,nclu);
+fprintf(prog)
 for ii = 1:nclu
     % spike timing sample of the cluster
-    if mod(ii,100)==0
-        prog='';
-        fprintf('\n  ')
-    end
-    if mod(ii,10)==1
+    if mod(ii,10)==0
         fprintf(repmat('\b', 1, numel(prog)))
         prog=sprintf('%s cluster %d / %d', datestr(now),ii,nclu);
         fprintf(prog)
+        if mod(ii,1000)==0
+            fprintf('\n  ')
+            prog='';
+        end
     end
     
     ssTmp = ss(clu==ii);
@@ -312,7 +315,7 @@ for ii=1:n2
     cluTmp = clu(any(clu==cluList,2));
     ssTmp  = ss(any(clu==cluList,2));
     n = length(ssTmp);
-    fprintf('%s%u%s%u\n','Shank: ',ii,' #spikes: ',n);
+    fprintf('%s Shank: %u #spikes: %u\n',datestr(now),ii,n);
     
     if n>1
         % channel range
@@ -321,15 +324,17 @@ for ii=1:n2
         n1=length(chrange);
         waves=zeros(NT,n1,n);
         fprintf('   %s loading spikes...',datestr(now))
-        fprintf('\n     ')
+        prog='';
+        fprintf('\n   ')
         for jj=1:ceil(n/1000)
-            if mod(jj,100)==0
-                prog='';
-                fprintf('\n     ')
-            end
             fprintf(repmat('\b', 1, numel(prog)))
             prog=sprintf('%s spike %u / %u', datestr(now),jj*1000,n);
             fprintf(prog)
+            if mod(jj,100)==0
+                prog='';
+                fprintf('\n   ')
+            end
+            
             target=1+(jj-1)*1000:min(n,jj*1000);
             % get all spikes in the max amplitude shank
             %                 temp=permute(single(reshape((dat.Data.raw(chrange,(ssTmp(target))+(-NT1:NT2))),[],length(target),NT)),[3,1,2]);
@@ -367,7 +372,16 @@ for ii=1:n2
         %                 waves(:,:,jj) = dat(:,chrange);
         %             end
         
-        % features for isolation distance
+        % features for isolation distance and L ratio
+        %   in Harris et al., Neuron, 2001
+        %       top 3 PCs
+        %   in Schmitzer-Torbert & Redish, J Neurophysiol, 2004
+        %       energy and top 3 PCs on energy normalized waveform
+        %   in Schmitzer-Torbert et al., Neuroscience, 2005
+        %       energy and top 1 PC on energy nomalized waveform
+        %
+        % Here we use the method in Schmitzer-Torbert et al., Neuroscience, 2005
+                       
         fprintf('%s PCA...\n',datestr(now))
         %             fet = nan(n,n1*2);
         fet = zeros(n,n1*2);
@@ -378,6 +392,7 @@ for ii=1:n2
         nwaves = waves./repmat(e,NT,1,1);
         % perform pca and take the 1st component
         for jj=1:n1
+            fprintf('  %s on ch %u / %u\n', datestr(now),jj,n1);
             [~,score] = pca( squeeze(permute(nwaves(:,jj,:),[2 3 1])) );
             fet(:,n1+jj) = score(:,1);
         end
@@ -386,6 +401,11 @@ for ii=1:n2
         for cluIdx=1:length(cluList)
             targetClu=cluList(cluIdx);
             
+            if ~outputFigure || (outputOnlyGood && ~strcmpi(stats(targetClu).group,'good'))
+                doOutput=false;
+            else
+                doOutput=true;
+            end
             %             shank(ii).waves = waves * dat2uV;   % conversion to uV
             %             shank(ii).clu = cluTmp;
             %             shank(ii).fet = fet;
@@ -419,29 +439,45 @@ for ii=1:n2
             %     stats(ii).waveSem   = stats(ii).waveStd / sqrt(spkNum);
             
             % plot waveforms for all channels in the shank
-            figure(1); clf
-            subplot(121)
-            
-            x = stats(targetClu).waveMean;
-            e = stats(targetClu).waveStd;
-            pad = repmat(-1*[1:n1],NT,1);
-            
-            x2 = x(:,stats(targetClu).maxCh);
-            e2 = e(:,stats(targetClu).maxCh);
-            pad2 = -stats(targetClu).maxCh;
-            
-            sc = 1/100;
-            plot([0 0],[0 -n1-1],':'); hold on
-            plot(t,x*sc+pad,'k',t,x2*sc+pad2,'r')
-            plot(t,(x2+e2)*sc+pad2,'r:',t,(x2-e2)*sc+pad2,'r:'); hold off
-            
-            xlabel('Time (ms)')
-            ylabel('Channels (channel spacing = 100uV)')
-            id = cluOri(clu==ii);
-            id = id(1);
-            title(sprintf('%s%s%u%s%u%s%u%s%u%s',sessName,'_',ii,' (id',id,') (sh',stats(ii).maxSh,' ch',stats(ii).maxCh,')'),'Interpreter','none')
-            
-            
+            if doOutput
+                figure(1); clf
+                subplot(121)
+
+                x = stats(targetClu).waveMean;
+                e = stats(targetClu).waveStd;
+                pad = repmat(-1*[1:n1],NT,1);
+
+                x2 = x(:,stats(targetClu).maxCh);
+                e2 = e(:,stats(targetClu).maxCh);
+                pad2 = -stats(targetClu).maxCh;
+
+                sc = 1/100;
+                hold on
+                plot(t,x*sc+pad,'k',t,x2*sc+pad2,'r')
+                plot(t,(x2+e2)*sc+pad2,'r:',t,(x2-e2)*sc+pad2,'r:');
+                box off
+                xlabel('Time (ms)')
+                ylabel('Channels (channel spacing = 100uV)')
+                id = cluOri(clu==targetClu);
+                id = id(1);
+                title(sprintf('%s%s%u%s%u%s%u%s%u%s',sessName,'_',targetClu,' (id',id,') (sh',stats(targetClu).maxSh,' ch',stats(targetClu).maxCh,')'),'Interpreter','none')
+                xlim([-NT1,NT2]/Fs*1000)
+                ax=fixAxis;
+                plot([0 0],ax(3:4),':');
+
+                switch lower(stats(targetClu).group)
+                    case 'good'
+                        textCol=[0,0.85,0];
+                    case 'mua'
+                        textCol=[0,0,1];
+                    case 'noise'
+                        textCol=[1,0,0];
+                    otherwise
+                        textCol=[0,0,0];
+                end
+                text2(-0.2,1.05,stats(targetClu).group,ax,...
+                        'horizontalAlign','left','color',textCol,'fontsize',15)
+            end
             % calculate waveform params
             tq = (-NT1:0.1:NT2)/Fs*1000;
             xq = interp1(t,x2,tq,'spline');  % 10-fold upsampling
@@ -487,50 +523,64 @@ for ii=1:n2
             inIdx =cluTmp==targetClu;
             %     inIdx = shank(maxSh).clu==ii;
             %     md = mahal(shank(maxSh).fet(~inIdx,:),shank(maxSh).fet(inIdx,:));
-            md = mahal(fet,fet(inIdx,:));
-            nIn = sum(inIdx);
-            nOut= sum(~inIdx);
-            if nIn>nOut
-                isoDist = nan;
+            if sum(inIdx)>size(fet,2)
+                md = mahal(fet,fet(inIdx,:));
+                nIn = sum(inIdx);
+                nOut= sum(~inIdx);
+                if nIn>nOut
+                    isoDist = nan;
+                else
+                    sortedmd = sort(md((~inIdx)));
+                    isoDist = sortedmd(sum(inIdx));
+                end
+
+                %L ratio
+                df = size(fet,2);
+                Lratio=sum(1-chi2cdf(md(~inIdx).^2,df))/sum(inIdx);
             else
-                sortedmd = sort(md((~inIdx)));
-                isoDist = sortedmd(sum(inIdx));
+                isoDist=nan;
+                Lratio=nan;
             end
-            
-            %L ratio
-            df = size(fet,2);
-            Lratio=sum(1-chi2cdf(md(~inIdx),df))/sum(inIdx);
-            
             
             % isi index (Fee et al., 1996, J Neurosci Methods)
             %     tsTmp = ts(clu==ii);
             tsTmp=ssTmp(cluTmp==targetClu)/Fs;
             isi = diff(tsTmp) *1000;  % (ms)
             isiIndex = (8/2)*( sum(isi<2)/sum(2<=isi & isi<10) );
+            [isiCnt,isiBin]=hist(isi(isi<50),50);
             
             % plot the largest amplitude waveform
-            subplot(222)
-            plot(tq,xq,'-'); hold on
-            plot(tq(riseIdx),rise,'ro',tq(troughIdx),trough,'ro',tq(peakIdx),peak,'ro')
-            plot([tq(FWHM1idx) tq(FWHM2idx)],[trough/2 trough/2],'r')
-            hold off
-            xlabel('Time (ms)')
-            ylabel('Amplitude (uV)')
-            title(sprintf('%s%.2f%s%.2f%s%.2f%s%.1f','Rise2tr=',rise2trough,' Tr2pk=',trough2peak,' FWHM=',FWHM,' Rate=',meanRate))
-            
-            subplot(224)
-            hist(isi(isi<50),50)
-            xlabel('ISI (ms)');
-            ylabel('# spikes')
-            title(sprintf('%s%.3f%s%.0f','ISIidx=',isiIndex,' IsoDist=',isoDist))
-            
-            drawnow;
-            
-            % save image
-            pngImage = sprintf('%s%u%s','spkStats_',targetClu,'.png');
-            epsImage = sprintf('%s%u%s','spkStats_',targetClu,'.eps');
-            print('-dpng',fullfile(figSaveDir,pngImage));
-            print('-depsc','-tiff',fullfile(figSaveDir,epsImage));
+            if doOutput
+                subplot(222)
+                plot(tq,xq,'-'); hold on
+                plot(tq(riseIdx),rise,'ro',tq(troughIdx),trough,'ro',tq(peakIdx),peak,'ro')
+                plot([tq(FWHM1idx) tq(FWHM2idx)],[trough/2 trough/2],'r')
+                hold off
+                xlabel('Time (ms)')
+                ylabel('Amplitude (uV)')
+                title(sprintf('%s%.2f%s%.2f%s%.2f%s%.1f','Rise2tr=',rise2trough,' Tr2pk=',trough2peak,' FWHM=',FWHM,' Rate=',meanRate))
+
+                xlim([-NT1,NT2]/Fs*1000)
+                fixAxis;
+                box off
+
+                subplot(224)
+                bar(isiBin,isiCnt,1)
+                xlabel('ISI (ms)');
+                ylabel('# spikes')
+                title(sprintf('ISIidx=%.3f, IsoDist=%.1f, L_{ratio}=%.3f',isiIndex,isoDist,Lratio))
+                box off
+                drawnow;
+
+                % save image
+                pngImage = sprintf('%s%u%s','spkStats_',targetClu,'.png');
+                epsImage = sprintf('%s%u%s','spkStats_',targetClu,'.eps');
+                print('-dpng',fullfile(figSaveDir,pngImage));
+                print('-depsc','-tiff',fullfile(figSaveDir,epsImage));
+            end
+            isiBin(end)=[];
+            isiCnt(end)=[];
+            [acgCnt,acgBin]=CCG(ssTmp(cluTmp==targetClu),1,1e-3*Fs, 30, Fs);
             
             % register
             stats(targetClu).id          = id;              % cluster id in Phy
@@ -543,6 +593,11 @@ for ii=1:n2
             stats(targetClu).Lratio     = Lratio;           % L-ratio
             stats(targetClu).meanRate    = meanRate;        % mean firing rate (Hz)
             stats(targetClu).spkNum      = spkNum;          % number of spikes
+            stats(targetClu).isi.cnt     = isiCnt;
+            stats(targetClu).isi.t     = isiBin;
+            stats(targetClu).acg.cnt     = acgCnt;
+            stats(targetClu).acg.t     = acgBin;
+
             %     stats(ii).id          = id;              % cluster id in Phy
             %     stats(ii).troughAmp   = -trough;         % trough amplitude (uV)
             %     stats(ii).rise2trough = rise2trough;     % rise to trough (ms)
@@ -559,35 +614,89 @@ for ii=1:n2
     end
 end
 figure(2); clf
-subplot(421); hist([stats.isoDist],40);      xlabel('Isolation distance'); title(sessName)
-subplot(422); hist([stats.isiIndex],40);     xlabel('ISI index')
-subplot(423); hist([stats.troughAmp],40);    xlabel('Trough amplitude (uV)')
-subplot(424); hist([stats.rise2trough],40);  xlabel('Rise to trough (ms)')
-subplot(425); hist([stats.trough2peak],40);  xlabel('Trough to peak (ms)')
-subplot(426); hist([stats.FWHM],40);         xlabel('FWHM (ms)')
-subplot(427); hist([stats.meanRate],40);     xlabel('Mean Rate (Hz)')
+plotParamList={'isoDist','Lratio','isiIndex','troughAmp','rise2trough','trough2peak','FWHM','meanRate'};
+labelText.isoDist='Isolation distance';
+labelText.Lratio='L ratio';
+labelText.isiIndex='ISI index';
+labelText.troughAmp='Trough amplitude (\muV)';
+labelText.rise2trough='Rise to trough (ms)';
+labelText.trough2peak='Trough to peak (ms)';
+labelText.FWHM='FWHM (ms)';
+labelText.meanRate='Mean Rate (Hz)';
+
+for n=1:8
+    subplot(4,2,n)
+    [cnt,bin]=hist([stats.(plotParamList{n})],40);  
+    gcnt=hist([stats(strcmpi({stats.group},'good')).(plotParamList{n})],bin);
+    bar(bin,cnt,1,'k')
+    hold on
+    bar(bin,gcnt,1,'facecolor',[0,0.9,0])
+    xlabel(labelText.(plotParamList{n}))
+    box off
+end
+% subplot(421); hist([stats.isoDist],40);      xlabel('Isolation distance'); title(sessName)
+% subplot(422); hist([stats.isiIndex],40);     xlabel('ISI index')
+% subplot(423); hist([stats.troughAmp],40);    xlabel('Trough amplitude (uV)')
+% subplot(424); hist([stats.rise2trough],40);  xlabel('Rise to trough (ms)')
+% subplot(425); hist([stats.trough2peak],40);  xlabel('Trough to peak (ms)')
+% subplot(426); hist([stats.FWHM],40);         xlabel('FWHM (ms)')
+% subplot(427); hist([stats.meanRate],40);     xlabel('Mean Rate (Hz)')
 print('-dpng',fullfile(figSaveDir,'spkStats_s1'));
 
 figure(3); clf
-subplot(221); scatter([stats.trough2peak],[stats.FWHM]); xlabel('Trough to peak (ms)'); ylabel('FWHM (ms)'); title(sessName)
-subplot(222); scatter([stats.rise2trough],[stats.FWHM]); xlabel('Rise to trough (ms)'); ylabel('FWHM (ms)'); title(sessName)
-subplot(223); scatter([stats.trough2peak],[stats.meanRate]); xlabel('Trough to peak (ms)'); ylabel('Mean rate (Hz)')
-subplot(224); scatter([stats.FWHM],[stats.meanRate]); xlabel('FWHM (ms)'); ylabel('Mean rate (Hz)')
+pairList={'trough2peak','FWHM'
+          'rise2trough','FWHM'
+          'trough2peak','meanRate'
+          'FWHM','meanRate'}
+      
+for n=1:4
+    subplot(2,2,n)
+    scatter([stats(~strcmpi({stats.group},'good')).(pairList{n,1})],...
+            [stats(~strcmpi({stats.group},'good')).(pairList{n,2})],...
+            36,'k')
+    hold on
+    scatter([stats(strcmpi({stats.group},'good')).(pairList{n,1})],...
+            [stats(strcmpi({stats.group},'good')).(pairList{n,2})],...
+            36,[0,0.9,0])
+    xlabel(labelText.(pairList{n,1}))
+    ylabel(labelText.(pairList{n,1}))
+end
+% subplot(221); scatter([stats.trough2peak],[stats.FWHM]); xlabel('Trough to peak (ms)'); ylabel('FWHM (ms)'); title(sessName)
+% subplot(222); scatter([stats.rise2trough],[stats.FWHM]); xlabel('Rise to trough (ms)'); ylabel('FWHM (ms)'); title(sessName)
+% subplot(223); scatter([stats.trough2peak],[stats.meanRate]); xlabel('Trough to peak (ms)'); ylabel('Mean rate (Hz)')
+% subplot(224); scatter([stats.FWHM],[stats.meanRate]); xlabel('FWHM (ms)'); ylabel('Mean rate (Hz)')
 print('-dpng',fullfile(figSaveDir,'spkStats_s2'));
 
 % unit number map
-unitNmap = zeros(n1,n2);
-for ii=1:nclu
-    unitNmap(stats(ii).maxCh,stats(ii).maxSh) = unitNmap(stats(ii).maxCh,stats(ii).maxSh)+1;
-end
-figure(4); clf
-imagesc(unitNmap); colorbar
-pbaspect([2400 1600 1]) % probe size
-title(sprintf('%s%s%s%u%s','Unit # map: ',sessName,'  (Total unit #: ',nclu,')'));
-xlabel('Shank'); ylabel('Channel')
-print('-dpng',fullfile(figSaveDir,'spkStats_s3'));
-print('-depsc','-tiff',fullfile(figSaveDir,'spkStats_s3'));
+%     unitNmap = zeros(n1,n2);
+%     for ii=1:nclu
+%         unitNmap(stats(ii).maxCh,stats(ii).maxSh) = unitNmap(stats(ii).maxCh,stats(ii).maxSh)+1;
+%     end
+bin={1:max(cellfun(@length,chanMap)),1:length(chanMap)};
+allUnitNmap=hist3([[stats.maxCh];[stats.maxSh]]',bin);
+[goodUnitNmap,bin]=hist3([[stats(strcmpi({stats.group},'good')).maxCh];
+                          [stats(strcmpi({stats.group},'good')).maxSh]]',bin);
+    
 
+    figure(4); clf
+for n=1:2
+    switch n
+        case 1
+            unitNmap = allUnitNmap;
+            utype='';
+        case 2
+            unitNmap = goodUnitNmap;
+            utype=' good'
+    end
+    subplot(2,1,n)
+    imagesc(unitNmap); colorbar
+    pbaspect([2400 1600 1]) % probe size
+%     title(sprintf('%s%s%s%u%s','Unit # map: ',sessName,'  (Total' ' unit #: ',nclu,')'));
+    title(sprintf('Unit # map: %s  (Total%s unit #:%u)',sessName, utype ,sum(unitNmap(:))));
+    xlabel('Shank'); ylabel('Channel')
+end
+    print('-dpng',fullfile(figSaveDir,'spkStats_s3'));
+    print('-depsc','-tiff',fullfile(figSaveDir,'spkStats_s3'));
 
 % save
 save(fullfile(matSaveDir,'spkStats.mat'),'stats','t','sessName','chanMap','params')
@@ -793,3 +902,33 @@ for ii=1:6
 end
 
 fclose(fid);
+
+%%
+% function h=text2(Xpos,Ypos,String,Axis,varargin)
+% wrapper of text to specify text as in relative position
+%
+% Hiro Miyawaki at UWM, 2011-
+%
+function h=text2(Xpos,Ypos,String,Axis,varargin)
+
+    if nargin<4
+        Axis=axis();
+    end
+    
+    % just for backward compatibility
+    if length(varargin)==1 && iscell(varargin)
+        Property=varargin{1};
+    else
+        Property=varargin;
+    end
+
+    H=text(Axis(1:2)*[1-Xpos;Xpos],Axis(3:4)*[1-Ypos;Ypos],String,Property{:});
+    if nargout>0
+        h=H;
+    end
+%%    
+function ax=fixAxis
+    ax=axis();
+    xlim(ax(1:2));
+    ylim(ax(3:4));
+    
