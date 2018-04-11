@@ -39,6 +39,8 @@
 %                                (regardless of setting, calculation will be done for all units) 
 %        figSaveDir (basepath)   path to save figures if output figure will be saved
 %        matSaveDir (basepath)   path to save final output (spkStats.mat)
+%        saveKK (false)        save .fet, .res, and .clu for neuroscope and others
+%        KKsaveDir (basepath)  
 %
 % OUTPUT
 %   spkStats.mat
@@ -56,7 +58,7 @@
 %           FWHM:        full width at half maximum (ms)
 %           isoDist:     isolation distance (well isolated, >20)
 %           isiIndex:    ISI index (well isolated, <0.2)
-%           Lratio;      L-ratio
+%           Lratio;      L-ratio (well isolated, <0.05)
 %           spkNum:      number of spikes
 %           meanRate:    mean firing rate (Hz)
 %           isi:         histogram of isi, with filed of cnt and t (in ms)
@@ -98,6 +100,8 @@ params.matSaveDir=basepath;
 params.datPath=basepath;
 params.outputFigure=true; 
 params.outputOnlyGood=true; 
+params.saveKK=false; 
+params.KKsaveDir=basepath; 
 
 paramList=fieldnames(params);
 if mod(length(varargin),2)==1
@@ -125,6 +129,10 @@ end
 if ~exist(matSaveDir,'dir')
     mkdir(matSaveDir)
 end
+if ~exist(kwikSaveDir,'dir') && saveKwik
+    mkdir(kwikSaveDir)
+end
+
 
 
 % n1 = size(chanMap0indMatrix,1);     % number of channels in a shank
@@ -615,6 +623,20 @@ for ii=1:n2
         
         
     end
+
+    if saveKK
+        fetTmp=fet;
+        updatedate=date;
+        generatorname=mfilename;
+        save(fullfile(kwikSaveDir,[sessionName '-shank' num2str(ii),'.mat']),'ssTmp','cluTmp','fetTmp','generatorname','updatedate','-v7.3') 
+        
+        factor=-floor(log10(mean(mean(abs(fetTmp(:,size(fet,2)/2+1:end))))));
+        fetTmp(:,size(fet,2)/2+1:end)=round(fetTmp(:,size(fet,2)/2+1:end)*10^(-factor+3));
+        
+        SaveFet(fullfile(KKSaveDir,[sessionName '.fet.' num2str(ii)]),[fetTmp,ssTmp])
+        SaveClu(fullfile(KKSaveDir,[sessionName '.clu.' num2str(ii)]),cluTmp)
+        SaveRes(fullfile(KKSaveDir,[sessionName '.res.' num2str(ii)]),ssTmp)
+    end
 end
 figure(2); clf
 plotParamList={'isoDist','Lratio','isiIndex','troughAmp','rise2trough','trough2peak','FWHM','meanRate'};
@@ -953,3 +975,34 @@ mths = ['Jan';'Feb';'Mar';'Apr';'May';'Jun';'Jul';
 d = sprintf('%.0f',c(3)+100);
 t = [d(2:3) '-' mths(c(2),:) '-' sprintf('%.0f',c(1))];
     
+%%
+function SaveFet(FileName, Fet)
+
+nFeatures = size(Fet, 2);
+formatstring = ['%d' repmat('\t%d',1,nFeatures-1) '\n'];
+% formatstring = '%d';
+% for ii=2:nFeatures
+%   formatstring = [formatstring,'\t%d'];
+% end
+% formatstring = [formatstring,'\n'];
+
+outputfile = fopen(FileName,'w');
+fprintf(outputfile, '%d\n', nFeatures);
+fprintf(outputfile,formatstring,round(Fet'));
+fclose(outputfile);
+
+fclose(outputfile);
+%%
+function SaveRes(FileName, Res)
+outputfile = fopen(FileName,'w');
+fprintf(outputfile,'%lu\n', Res(:));
+fclose(outputfile);
+%%
+function SaveClu(FileName, Clu)
+
+nClusters = max(Clu);
+
+outputfile = fopen(FileName,'w');
+fprintf(outputfile, '%d\n', nClusters);
+fprintf(outputfile,'%d\n', Clu(:));
+fclose(outputfile);
