@@ -46,6 +46,7 @@
 %           id:          original cluster id in Phy
 %           maxSh:       maximum-amplitude shank
 %           maxCh:       maximum-amplitude channel in the shank (from top to bottom)
+%           group:       group assigned on Phy (good/mua/noise/unsorted)
 %           waveMean:    mean spike waveform of all channels in the shank
 %           waveStd:     standard deviation of waveforms
 %           waveSem:     standard error of the mean of waveforms
@@ -58,6 +59,8 @@
 %           Lratio;      L-ratio
 %           spkNum:      number of spikes
 %           meanRate:    mean firing rate (Hz)
+%           isi:         histogram of isi, with filed of cnt and t (in ms)
+%           acg:         ACG of spike time, with filed of cnt and t (in ms)
 %       t: time vecor for plotting spike waveforms (ms)
 %
 % References
