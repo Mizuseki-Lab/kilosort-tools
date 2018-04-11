@@ -232,9 +232,9 @@ for ii = 1:nclu
         fprintf(repmat('\b', 1, numel(prog)))
         prog=sprintf('%s cluster %d / %d', datestr(now),ii,nclu);
         fprintf(prog)
-        if mod(ii,1000)==0
+        if mod(ii,100)==0
             fprintf('\n  ')
-            prog='';
+            fprintf(prog)
         end
     end
     
@@ -331,8 +331,8 @@ for ii=1:n2
             prog=sprintf('%s spike %u / %u', datestr(now),jj*1000,n);
             fprintf(prog)
             if mod(jj,100)==0
-                prog='';
                 fprintf('\n   ')
+                fprintf(prog)
             end
             
             target=1+(jj-1)*1000:min(n,jj*1000);
@@ -699,6 +699,9 @@ end
     print('-depsc','-tiff',fullfile(figSaveDir,'spkStats_s3'));
 
 % save
+params.generatorname=mfilename
+params.updated=date;
+
 save(fullfile(matSaveDir,'spkStats.mat'),'stats','t','sessName','chanMap','params')
 
 %%
@@ -931,4 +934,19 @@ function ax=fixAxis
     ax=axis();
     xlim(ax(1:2));
     ylim(ax(3:4));
+    
+%%
+function t = date
+%DATE   Current date as character vector.
+%   S = DATE returns a character vector containing the date in dd-mmm-yyyy format.
+%
+%   See also NOW, CLOCK, DATENUM.
+
+%   Copyright 1984-2016 The MathWorks, Inc.
+
+c = clock;
+mths = ['Jan';'Feb';'Mar';'Apr';'May';'Jun';'Jul';
+        'Aug';'Sep';'Oct';'Nov';'Dec'];
+d = sprintf('%.0f',c(3)+100);
+t = [d(2:3) '-' mths(c(2),:) '-' sprintf('%.0f',c(1))];
     
