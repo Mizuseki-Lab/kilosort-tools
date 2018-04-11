@@ -101,7 +101,7 @@ params.datPath=basepath;
 params.outputFigure=true; 
 params.outputOnlyGood=true; 
 params.saveKK=false; 
-params.KKsaveDir=basepath; 
+params.kkSaveDir=basepath; 
 
 paramList=fieldnames(params);
 if mod(length(varargin),2)==1
@@ -129,7 +129,7 @@ end
 if ~exist(matSaveDir,'dir')
     mkdir(matSaveDir)
 end
-if ~exist(kkSaveDir,'dir') && saveKwik
+if ~exist(kkSaveDir,'dir') && saveKK
     mkdir(kkSaveDir)
 end
 
