@@ -129,8 +129,8 @@ end
 if ~exist(matSaveDir,'dir')
     mkdir(matSaveDir)
 end
-if ~exist(kwikSaveDir,'dir') && saveKwik
-    mkdir(kwikSaveDir)
+if ~exist(kkSaveDir,'dir') && saveKwik
+    mkdir(kkSaveDir)
 end
 
 
