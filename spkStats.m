@@ -39,8 +39,9 @@
 %                                (regardless of setting, calculation will be done for all units) 
 %        figSaveDir (basepath)   path to save figures if output figure will be saved
 %        matSaveDir (basepath)   path to save final output (spkStats.mat)
-%        saveKK (false)        save .fet, .res, and .clu for neuroscope and others
-%        KKsaveDir (basepath)  
+%        saveKK (false)          save .fet, .res, and .clu for neuroscope and others
+%        KKsaveDir (basepath)    directory for .fet .res, and .clu  
+%        verbose (true)          show detailed progress
 %
 % OUTPUT
 %   spkStats.mat
@@ -88,7 +89,7 @@ params.basepath=basepath;
 params.chanMap=chanMap;
 
 % setting
-fprintf('%s%s\n','Gathering spike waveforms: ',basepath)
+fprintf('%s%s\n','Gathering spike waveforms:\n  ',basepath)
 
 params.dat2uV  = 5*10^6/400/(2^16/2);       % dat to micro volt conversion
 % tmpfile = fullfile(basepath,'spkStatsTmp.mat');
@@ -102,6 +103,7 @@ params.outputFigure=true;
 params.outputOnlyGood=true; 
 params.saveKK=false; 
 params.kkSaveDir=basepath; 
+params.verbose=true;
 
 paramList=fieldnames(params);
 if mod(length(varargin),2)==1
@@ -197,15 +199,22 @@ bytes   = datfile.bytes;
 sessName = datfile.name(1:end-4);
 
 % spike samples
-fprintf('%s loading %s\n',datestr(now),'spike_times.npy')
+if verbose
+    fprintf('  %s loading %s\n',datestr(now),'spike_times.npy')
+end
 ss  = npy2mat(fullfile(basepath,'spike_times.npy'));
+
 % load cluster number
-fprintf('%s loading %s\n',datestr(now),'spike_clusters.npy')
+if verbose
+    fprintf('  %s loading %s\n',datestr(now),'spike_clusters.npy')
+end
 cluOri = npy2mat(fullfile(basepath,'spike_clusters.npy'))';
 [~,~,clu]=unique(cluOri);
 
 % load clustering result
-fprintf('%s loading %s\n',datestr(now),'cluster_groups.csv')
+if verbose
+    fprintf('  %s loading %s\n',datestr(now),'cluster_groups.csv')
+end
 fid = fopen(fullfile(basepath,'cluster_groups.csv'),'r');
 csv = textscan(fid,'%s %s');
 fclose(fid);
@@ -223,7 +232,7 @@ t   = (-NT1:NT2)/Fs*1000;    % time vector (ms)
 
 % gather spike waveforms
 disp('Gathering spike waveforms')
-disp(['from ' fullfile(datfile.folder,datfile.name)])
+disp(['  from ' fullfile(datfile.folder,datfile.name)])
 nclu = max(clu);
 stats = struct;
 
@@ -233,13 +242,15 @@ dat=memmapfile(fullfile(datfile.folder,datfile.name),'format',{'int16',[NchanTOT
 
 
 %% determine the largest amp shank by getting sparsely sampled 100 spikes
-fprintf('%s Getting shank of each cluster ... ', datestr(now));
-fprintf('\n  ')
-prog=sprintf('%s cluster %d / %d', datestr(now),1,nclu);
-fprintf(prog)
+fprintf('%s Getting shank of each cluster ... \n', datestr(now));
+if verbose
+    fprintf('  ')
+    prog=sprintf('%s cluster %d / %d', datestr(now),1,nclu);
+    fprintf(prog)
+end
 for ii = 1:nclu
     % spike timing sample of the cluster
-    if mod(ii,10)==0
+    if mod(ii,10)==0 && verbose
         fprintf(repmat('\b', 1, numel(prog)))
         prog=sprintf('%s cluster %d / %d', datestr(now),ii,nclu);
         fprintf(prog)
@@ -301,11 +312,12 @@ for ii = 1:nclu
     stats(ii).group=group{ii};
 end
 
-fprintf(repmat('\b', 1, numel(prog)))
-prog=sprintf('%s cluster %d / %d', datestr(now),ii,nclu);
-fprintf(prog)
-fprintf('\n')
-
+if verbose
+    fprintf(repmat('\b', 1, numel(prog)))
+    prog=sprintf('%s cluster %d / %d', datestr(now),ii,nclu);
+    fprintf(prog)
+    fprintf('\n')
+end
 
 %% gather spikes for each shank
 
@@ -329,21 +341,24 @@ for ii=1:n2
     fprintf('%s Shank: %u #spikes: %u\n',datestr(now),ii,n);
     
     if n>1
+        tic
         % channel range
         chrange=chanMap{ii}+1;
         %             chrange = (ii-1)*n1+1:ii*n1;
         n1=length(chrange);
-        waves=zeros(NT,n1,n);
-        fprintf('   %s loading spikes...',datestr(now))
+        waves=zeros(NT,n1,n);         
+        fprintf('  %s loading spikes...',datestr(now))
         prog='';
-        fprintf('\n   ')
+        fprintf('\n')
         for jj=1:ceil(n/1000)
-            fprintf(repmat('\b', 1, numel(prog)))
-            prog=sprintf('%s spike %u / %u', datestr(now),jj*1000,n);
-            fprintf(prog)
-            if mod(jj,100)==0
-                fprintf('\n   ')
+            if verbose
+                fprintf(repmat('\b', 1, numel(prog)))
+                prog=sprintf('    %s spike %u / %u', datestr(now),jj*1000,n);
                 fprintf(prog)
+                if mod(jj,100)==0
+                    fprintf('\n')
+                    fprintf(prog)
+                end
             end
             
             target=1+(jj-1)*1000:min(n,jj*1000);
@@ -361,11 +376,11 @@ for ii=1:n2
             waves(:,:,target)=temp-baseline;
             %             waves = single(nan(NT,n1,n));
         end
-        fprintf(repmat('\b', 1, numel(prog)));
-        prog=sprintf('%s spike %u / %u', datestr(now),target(end),n);
-        fprintf(prog);
-        fprintf('\n');
         
+        if verbose        
+            fprintf(repmat('\b', 1, numel(prog)));
+            fprintf('    %s spike %u / %u\n', datestr(now),target(end),n);
+        end
         %             for jj=1:n
         %                 % get waveform around each spike
         %                 fseek(fid, 2*NchanTOT*(ssTmp(jj)-NT1), 'bof');
@@ -393,7 +408,7 @@ for ii=1:n2
         %
         % Here we use the method in Schmitzer-Torbert et al., Neuroscience, 2005
                        
-        fprintf('%s PCA...\n',datestr(now))
+        fprintf('  %s PCA...\n',datestr(now))
         %             fet = nan(n,n1*2);
         fet = zeros(n,n1*2);
         % power of spike waveform
@@ -403,12 +418,17 @@ for ii=1:n2
         nwaves = waves./repmat(e,NT,1,1);
         % perform pca and take the 1st component
         for jj=1:n1
-            fprintf('  %s on ch %u / %u\n', datestr(now),jj,n1);
+            if verbose            
+                fprintf('    %s on ch %u / %u\n', datestr(now),jj,n1);
+            end
             [~,score] = pca( squeeze(permute(nwaves(:,jj,:),[2 3 1])) );
             fet(:,n1+jj) = score(:,1);
         end
         
         waves = waves * dat2uV;
+        if verbose
+            fprintf('  %s get stats of each cluster\n',datestr(now))
+        end
         for cluIdx=1:length(cluList)
             targetClu=cluList(cluIdx);
             
@@ -620,22 +640,26 @@ for ii=1:n2
             %     stats(ii).spkNum      = spkNum;          % number of spikes
             %
         end
+        if saveKK
+            fprintf('  %s save KK files of shank %d \n',datestr(now),ii)
+            fetTmp=fet;
+            updatedate=date;
+            generatorname=mfilename;
+            save(fullfile(kkSaveDir,[sessName '-shank' num2str(ii),'.mat']),'ssTmp','cluTmp','fetTmp','generatorname','updatedate','-v7.3')
+            
+            factor=-floor(log10(mean(mean(abs(fetTmp(:,size(fet,2)/2+1:end))))));
+            fetTmp(:,size(fet,2)/2+1:end)=fetTmp(:,size(fet,2)/2+1:end)*10^(-factor+3);
+            
+            SaveFet(fullfile(kkSaveDir,[sessName '.fet.' num2str(ii)]),[fetTmp,ssTmp])
+            SaveClu(fullfile(kkSaveDir,[sessName '.clu.' num2str(ii)]),cluTmp)
+            SaveRes(fullfile(kkSaveDir,[sessName '.res.' num2str(ii)]),ssTmp)
+        end
+        tocTime=toc;
+        fprintf('%s Finish shank %d/%d with %u spikes, took %02d:%02d:%02.2f \n',...
+                datestr(now),ii,n2,n,floor(tocTime/3600),floor(mod(tocTime,3600)/60),mod(tocTime,60))
         
-        
-    end
-
-    if saveKK
-        fetTmp=fet;
-        updatedate=date;
-        generatorname=mfilename;
-        save(fullfile(kkSaveDir,[sessName '-shank' num2str(ii),'.mat']),'ssTmp','cluTmp','fetTmp','generatorname','updatedate','-v7.3') 
-        
-        factor=-floor(log10(mean(mean(abs(fetTmp(:,size(fet,2)/2+1:end))))));
-        fetTmp(:,size(fet,2)/2+1:end)=round(fetTmp(:,size(fet,2)/2+1:end)*10^(-factor+3));
-        
-        SaveFet(fullfile(kkSaveDir,[sessName '.fet.' num2str(ii)]),[fetTmp,ssTmp])
-        SaveClu(fullfile(kkSaveDir,[sessName '.clu.' num2str(ii)]),cluTmp)
-        SaveRes(fullfile(kkSaveDir,[sessName '.res.' num2str(ii)]),ssTmp)
+    else
+        fprintf('No spikes on shank %d \n',ii)        
     end
 end
 figure(2); clf
@@ -991,7 +1015,6 @@ fprintf(outputfile, '%d\n', nFeatures);
 fprintf(outputfile,formatstring,round(Fet'));
 fclose(outputfile);
 
-fclose(outputfile);
 %%
 function SaveRes(FileName, Res)
 outputfile = fopen(FileName,'w');
