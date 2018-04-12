@@ -628,14 +628,14 @@ for ii=1:n2
         fetTmp=fet;
         updatedate=date;
         generatorname=mfilename;
-        save(fullfile(kwikSaveDir,[sessionName '-shank' num2str(ii),'.mat']),'ssTmp','cluTmp','fetTmp','generatorname','updatedate','-v7.3') 
+        save(fullfile(kkSaveDir,[sessionName '-shank' num2str(ii),'.mat']),'ssTmp','cluTmp','fetTmp','generatorname','updatedate','-v7.3') 
         
         factor=-floor(log10(mean(mean(abs(fetTmp(:,size(fet,2)/2+1:end))))));
         fetTmp(:,size(fet,2)/2+1:end)=round(fetTmp(:,size(fet,2)/2+1:end)*10^(-factor+3));
         
-        SaveFet(fullfile(KKSaveDir,[sessionName '.fet.' num2str(ii)]),[fetTmp,ssTmp])
-        SaveClu(fullfile(KKSaveDir,[sessionName '.clu.' num2str(ii)]),cluTmp)
-        SaveRes(fullfile(KKSaveDir,[sessionName '.res.' num2str(ii)]),ssTmp)
+        SaveFet(fullfile(kkSaveDir,[sessionName '.fet.' num2str(ii)]),[fetTmp,ssTmp])
+        SaveClu(fullfile(kkSaveDir,[sessionName '.clu.' num2str(ii)]),cluTmp)
+        SaveRes(fullfile(kkSaveDir,[sessionName '.res.' num2str(ii)]),ssTmp)
     end
 end
 figure(2); clf
