@@ -645,7 +645,7 @@ for ii=1:n2
             fetTmp=fet;
             updatedate=date;
             generatorname=mfilename;
-            save(fullfile(kkSaveDir,[sessName '-shank' num2str(ii),'.mat']),'ssTmp','cluTmp','fetTmp','generatorname','updatedate','-v7.3')
+            save(fullfile(matSaveDir,[sessName '-shank' num2str(ii),'.mat']),'ssTmp','cluTmp','fetTmp','generatorname','updatedate','-v7.3')
             
             factor=-floor(log10(mean(mean(abs(fetTmp(:,size(fet,2)/2+1:end))))));
             fetTmp(:,size(fet,2)/2+1:end)=fetTmp(:,size(fet,2)/2+1:end)*10^(-factor+3);
@@ -655,7 +655,7 @@ for ii=1:n2
             SaveRes(fullfile(kkSaveDir,[sessName '.res.' num2str(ii)]),ssTmp)
         end
         tocTime=toc;
-        fprintf('%s Finish shank %d/%d with %u spikes, took %02d:%02d:%02.2f \n',...
+        fprintf('%s Finish shank %d/%d with %u spikes, took %02d:%02d:%05.2f \n',...
                 datestr(now),ii,n2,n,floor(tocTime/3600),floor(mod(tocTime,3600)/60),mod(tocTime,60))
         
     else
