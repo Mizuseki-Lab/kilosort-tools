@@ -715,7 +715,7 @@ for n=1:4
             [stats(strcmpi({stats.group},'good')).(pairList{n,2})],...
             36,[0,0.9,0])
     xlabel(labelText.(pairList{n,1}))
-    ylabel(labelText.(pairList{n,1}))
+    ylabel(labelText.(pairList{n,2}))
 end
 % subplot(221); scatter([stats.trough2peak],[stats.FWHM]); xlabel('Trough to peak (ms)'); ylabel('FWHM (ms)'); title(sessName)
 % subplot(222); scatter([stats.rise2trough],[stats.FWHM]); xlabel('Rise to trough (ms)'); ylabel('FWHM (ms)'); title(sessName)
