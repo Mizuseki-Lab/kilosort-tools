@@ -41,7 +41,9 @@
 %        matSaveDir (basepath)   path to save final output (spkStats.mat)
 %        saveKK (false)          save .fet, .res, and .clu for neuroscope and others
 %        KKsaveDir (basepath)    directory for .fet .res, and .clu  
+%        nFet (1)                number of featuer per channel
 %        verbose (true)          show detailed progress
+%       
 %
 % OUTPUT
 %   spkStats.mat
@@ -104,6 +106,7 @@ params.outputOnlyGood=true;
 params.saveKK=false; 
 params.kkSaveDir=basepath; 
 params.verbose=true;
+params.nFet=1;
 
 paramList=fieldnames(params);
 if mod(length(varargin),2)==1
@@ -410,7 +413,7 @@ for ii=1:n2
                        
         fprintf('  %s PCA...\n',datestr(now))
         %             fet = nan(n,n1*2);
-        fet = zeros(n,n1*2);
+        fet = zeros(n,n1*(nFet+1));
         % power of spike waveform
         e = sum(waves.^2,1);
         fet(:,1:n1) = squeeze(e)';
@@ -422,7 +425,7 @@ for ii=1:n2
                 fprintf('    %s on ch %u / %u\n', datestr(now),jj,n1);
             end
             [~,score] = pca( squeeze(permute(nwaves(:,jj,:),[2 3 1])) );
-            fet(:,n1+jj) = score(:,1);
+            fet(:,n1+(jj-1)*nFet+(1:nFet)) = score(:,1:nFet);
         end
         
         waves = waves * dat2uV;
@@ -662,6 +665,10 @@ for ii=1:n2
         fprintf('No spikes on shank %d \n',ii)        
     end
 end
+
+%%
+save(fullfile(matSaveDir,'spkStats.mat'),'stats','t','sessName','chanMap','params')
+%%
 figure(2); clf
 plotParamList={'isoDist','Lratio','isiIndex','troughAmp','rise2trough','trough2peak','FWHM','meanRate'};
 labelText.isoDist='Isolation distance';
@@ -751,7 +758,6 @@ end
 params.generatorname=mfilename;
 params.updated=date;
 
-save(fullfile(matSaveDir,'spkStats.mat'),'stats','t','sessName','chanMap','params')
 
 %%
 % [ts,clu,cluOri,Fs]=loadSpk(basepath,sess)
