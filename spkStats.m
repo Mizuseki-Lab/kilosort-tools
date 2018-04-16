@@ -616,6 +616,15 @@ for ii=1:n2
             isiCnt(end)=[];
             [acgCnt,acgBin]=CCG(ssTmp(cluTmp==targetClu),1,1e-3*Fs, 30, Fs);
             
+            if isempty(rise2trough)
+                rise2trough=nan;
+            end
+            if isempty(trough2peak)
+                trough2peak=nana;
+            end
+            if isempty(FWHM)
+                FWHM=nan;
+            end
             % register
             stats(targetClu).id          = id;              % cluster id in Phy
             stats(targetClu).troughAmp   = -trough;         % trough amplitude (uV)
@@ -667,9 +676,13 @@ for ii=1:n2
 end
 
 %%
+params.generatorname=mfilename;
+params.updated=date;
 save(fullfile(matSaveDir,'spkStats.mat'),'stats','t','sessName','chanMap','params')
 %%
-figure(2); clf
+
+figH2=figure(2); clf
+figH2.Position(1)=0;
 plotParamList={'isoDist','Lratio','isiIndex','troughAmp','rise2trough','trough2peak','FWHM','meanRate'};
 labelText.isoDist='Isolation distance';
 labelText.Lratio='L ratio';
@@ -678,16 +691,35 @@ labelText.troughAmp='Trough amplitude (\muV)';
 labelText.rise2trough='Rise to trough (ms)';
 labelText.trough2peak='Trough to peak (ms)';
 labelText.FWHM='FWHM (ms)';
-labelText.meanRate='Mean Rate (Hz)';
+labelText.meanRate='Mean Rate (Log_{10} Hz)';
 
+clear bin
+bin.isoDist=linspace(0,100,50);
+bin.Lratio=linspace(0,0.2,50);
+bin.isiIndex=linspace(0,1,50);
+bin.troughAmp=linspace(0,ceil(max([stats.troughAmp])/100)*100,50);
+bin.rise2trough=linspace(0,1.5,50);
+bin.trough2peak=linspace(0,1.5,50);;
+bin.FWHM=linspace(0,1.5,50);
+bin.meanRate=linspace(-5,2,50);;
+
+clear gooX allX
 for n=1:8
+    goodX=[stats(strcmpi({stats.group},'good')).(plotParamList{n})];
+    allX=[stats(~strcmpi({stats.group},'noise')).(plotParamList{n})];
+    if strcmpi(plotParamList{n},'meanRate')
+        goodX=log10(goodX);
+        allX=log10(allX);
+    end
+    
     subplot(4,2,n)
-    [cnt,bin]=hist([stats.(plotParamList{n})],40);  
-    gcnt=hist([stats(strcmpi({stats.group},'good')).(plotParamList{n})],bin);
-    bar(bin,cnt,1,'k')
+    cnt=hist(allX,bin.(plotParamList{n}));  
+    gcnt=hist(goodX,bin.(plotParamList{n}));
+    bar(bin.(plotParamList{n}),cnt,1,'b')
     hold on
-    bar(bin,gcnt,1,'facecolor',[0,0.9,0])
+    bar(bin.(plotParamList{n}),gcnt,1,'facecolor',[0,0.9,0])
     xlabel(labelText.(plotParamList{n}))
+    axis tight
     box off
 end
 % subplot(421); hist([stats.isoDist],40);      xlabel('Isolation distance'); title(sessName)
@@ -699,21 +731,30 @@ end
 % subplot(427); hist([stats.meanRate],40);     xlabel('Mean Rate (Hz)')
 print('-dpng',fullfile(figSaveDir,'spkStats_s1'));
 
-figure(3); clf
+figH3=figure(3); clf
+figH3.Position(1)=figH2.Position(1)+figH2.Position(3)+5;
+
 pairList={'trough2peak','FWHM'
           'rise2trough','FWHM'
           'trough2peak','meanRate'
           'FWHM','meanRate'};
-      
+clear goodX muaX      
 for n=1:4
+    for m=1:2
+        goodX{m}=[stats(strcmpi({stats.group},'good')).(pairList{n,m})];
+        muaX{m}=[stats(strcmpi({stats.group},'mua')).(pairList{n,m})];
+        if strcmpi(pairList{n,m},'meanRate')
+             goodX{m}=log10(goodX{m});
+             muaX{m}=log10(muaX{m});
+        end
+    end
+
     subplot(2,2,n)
-    scatter([stats(~strcmpi({stats.group},'good')).(pairList{n,1})],...
-            [stats(~strcmpi({stats.group},'good')).(pairList{n,2})],...
-            36,'k')
+    scatter(muaX{1},muaX{2},...
+            10,[0.3,0.3,1],'filled','MarkerFaceAlpha',0.5,'MarkerEdgeAlpha',0.5)
     hold on
-    scatter([stats(strcmpi({stats.group},'good')).(pairList{n,1})],...
-            [stats(strcmpi({stats.group},'good')).(pairList{n,2})],...
-            36,[0,0.9,0])
+    scatter(goodX{1},goodX{2},...
+            10,[0,0.9,0],'filled','MarkerFaceAlpha',0.5,'MarkerEdgeAlpha',0.5)
     xlabel(labelText.(pairList{n,1}))
     ylabel(labelText.(pairList{n,2}))
 end
@@ -728,13 +769,17 @@ print('-dpng',fullfile(figSaveDir,'spkStats_s2'));
 %     for ii=1:nclu
 %         unitNmap(stats(ii).maxCh,stats(ii).maxSh) = unitNmap(stats(ii).maxCh,stats(ii).maxSh)+1;
 %     end
+clear bin
+
 bin={1:max(cellfun(@length,chanMap)),1:length(chanMap)};
-allUnitNmap=hist3([[stats.maxCh];[stats.maxSh]]',bin);
+allUnitNmap=hist3([[stats(~strcmpi({stats.group},'noise')).maxCh];
+                          [stats(~strcmpi({stats.group},'noise')).maxSh]]',bin);
 goodUnitNmap=hist3([[stats(strcmpi({stats.group},'good')).maxCh];
                           [stats(strcmpi({stats.group},'good')).maxSh]]',bin);
     
 
-    figure(4); clf
+figH4=figure(4); clf
+figH4.Position(1)=figH3.Position(1)+figH3.Position(3)+5;
 for n=1:2
     switch n
         case 1
@@ -755,8 +800,7 @@ end
     print('-depsc','-tiff',fullfile(figSaveDir,'spkStats_s3'));
 
 % save
-params.generatorname=mfilename;
-params.updated=date;
+
 
 
 %%
