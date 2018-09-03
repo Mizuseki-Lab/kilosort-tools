@@ -91,7 +91,7 @@ params.basepath=basepath;
 params.chanMap=chanMap;
 
 % setting
-fprintf('%s%s\n','Gathering spike waveforms:\n  ',basepath)
+fprintf('%s\n   %s\n','Gathering spike waveforms:  ',basepath)
 
 params.dat2uV  = 5*10^6/400/(2^16/2);       % dat to micro volt conversion
 % tmpfile = fullfile(basepath,'spkStatsTmp.mat');
@@ -212,7 +212,7 @@ if verbose
     fprintf('  %s loading %s\n',datestr(now),'spike_clusters.npy')
 end
 cluOri = npy2mat(fullfile(basepath,'spike_clusters.npy'))';
-[~,~,clu]=unique(cluOri);
+[clu2cluOri,~,clu]=unique(cluOri);
 
 % load clustering result
 if verbose
@@ -313,6 +313,8 @@ for ii = 1:nclu
     stats(ii).maxCh = find(chanMap{stats(ii).maxSh}==chanmapLinear(maxAmpCh)-1);
     stats(ii).maxChRaw=chanmapLinear(maxAmpCh);
     stats(ii).group=group{ii};
+    stats(ii).id=clu2cluOri(ii);
+    
 end
 
 if verbose
@@ -473,17 +475,17 @@ for ii=1:n2
             %     stats(ii).waveSem   = stats(ii).waveStd / sqrt(spkNum);
             
             % plot waveforms for all channels in the shank
+            x = stats(targetClu).waveMean;
+            e = stats(targetClu).waveStd;
+            pad = repmat(-1*(1:n1),NT,1);
+
+            x2 = x(:,stats(targetClu).maxCh);
+            e2 = e(:,stats(targetClu).maxCh);
+            pad2 = -stats(targetClu).maxCh;
+            
             if doOutput
                 figure(1); clf
                 subplot(121)
-
-                x = stats(targetClu).waveMean;
-                e = stats(targetClu).waveStd;
-                pad = repmat(-1*(1:n1),NT,1);
-
-                x2 = x(:,stats(targetClu).maxCh);
-                e2 = e(:,stats(targetClu).maxCh);
-                pad2 = -stats(targetClu).maxCh;
 
                 sc = 1/100;
                 hold on
@@ -492,8 +494,9 @@ for ii=1:n2
                 box off
                 xlabel('Time (ms)')
                 ylabel('Channels (channel spacing = 100uV)')
-                id = cluOri(clu==targetClu);
-                id = id(1);
+%                 id = cluOri(clu==targetClu);
+%                 id = id(1);
+                id=stats(targetClu).id;
                 title(sprintf('%s%s%u%s%u%s%u%s%u%s',sessName,'_',targetClu,' (id',id,') (sh',stats(targetClu).maxSh,' ch',stats(targetClu).maxCh,')'),'Interpreter','none')
                 xlim([-NT1,NT2]/Fs*1000)
                 ax=fixAxis;
@@ -626,7 +629,7 @@ for ii=1:n2
                 FWHM=nan;
             end
             % register
-            stats(targetClu).id          = id;              % cluster id in Phy
+%             stats(targetClu).id          = id;              % cluster id in Phy
             stats(targetClu).troughAmp   = -trough;         % trough amplitude (uV)
             stats(targetClu).rise2trough = rise2trough;     % rise to trough (ms)
             stats(targetClu).trough2peak = trough2peak;     % trough to peak (ms)
