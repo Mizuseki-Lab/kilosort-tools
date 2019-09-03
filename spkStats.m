@@ -417,7 +417,8 @@ for ii=1:n2
         %             fet = nan(n,n1*2);
         fet = zeros(n,n1*(nFet+1));
         % power of spike waveform
-        e = sum(waves.^2,1);
+        e = sqrt(mean(waves.^2,1)); %fixed based on a comment from S. Setogawa
+%         e = sum(waves.^2,1);
         fet(:,1:n1) = squeeze(e)';
         % normaized waveforms
         nwaves = waves./repmat(e,NT,1,1);
@@ -533,13 +534,18 @@ for ii=1:n2
             rise    = xq(riseIdx);
             
             % peak point
-            [pks,locs] = findpeaks(xq(troughIdx:end));
-            if ~isempty(pks)
-                peakIdx = troughIdx + locs(1) -1;
-                peak    = pks(1);
+            if troughIdx>length(xq)-2
+                peakIdx=troughIdx;
+                peak=xq(peakIdx);
             else
-                peakIdx = length(tq);
-                peak    = xq(peakIdx);
+                [pks,locs] = findpeaks(xq(troughIdx:end));
+                if ~isempty(pks)
+                    peakIdx = troughIdx + locs(1) -1;
+                    peak    = pks(1);
+                else
+                    peakIdx = length(tq);
+                    peak    = xq(peakIdx);
+                end
             end
             
             % FWHM
@@ -583,8 +589,10 @@ for ii=1:n2
             %     tsTmp = ts(clu==ii);
             tsTmp=ssTmp(cluTmp==targetClu)/Fs;
             isi = diff(tsTmp) *1000;  % (ms)
-            isiIndex = (8/2)*( sum(isi<2)/sum(2<=isi & isi<10) );
-            [isiCnt,isiBin]=hist(isi(isi<50),50);
+
+%             isiIndex = (8/2)*( sum(isi<2)/sum(2<=isi & isi<10) );
+            isiIndex=(sum(isi>0 & isi<2)/2) / (sum(isi>0 & isi <10)/10);
+            [isiCnt,isiBin]=hist(isi(isi<50),0.25:0.5:50.25);
             
             % plot the largest amplitude waveform
             if doOutput
